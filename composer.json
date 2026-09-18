@@ -1,6 +1,6 @@
 {
   "name": "bedriox/plugin-tools",
-  "description": "Deterministic and bounded PHAR packaging tools for Bedriox plugins.",
+  "description": "Source loading and secure PHAR packaging tools for Bedriox plugin development.",
   "type": "project",
   "license": "GPL-3.0-only",
   "homepage": "https://bedriox.com",

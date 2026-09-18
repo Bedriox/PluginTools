@@ -20,15 +20,21 @@ spl_autoload_register(static function (string $class) use ($archive): void {
     }
 });
 
-if ($argc < 2 || $argc > 3) {
-    fwrite(STDERR, "Usage: PluginTools.phar <project-directory> [output.phar]\n");
+$arguments = array_slice($argv, 1);
+$overwrite = false;
+if (($key = array_search('--overwrite', $arguments, true)) !== false) {
+    $overwrite = true;
+    array_splice($arguments, (int) $key, 1);
+}
+if (count($arguments) < 1 || count($arguments) > 2) {
+    fwrite(STDERR, "Usage: PluginTools.phar <project-directory> [output.phar] [--overwrite]\n");
     exit(2);
 }
 
-$project = $argv[1];
-$output = $argv[2] ?? getcwd() . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . basename($project) . '.phar';
+$project = $arguments[0];
+$output = $arguments[1] ?? getcwd() . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . basename($project) . '.phar';
 try {
-    $name = (new PluginPackager())->build($project, $output);
+    $name = (new PluginPackager())->build($project, $output, $overwrite);
     fwrite(STDOUT, "Built {$name}: {$output}\n");
 } catch (Throwable $error) {
     fwrite(STDERR, 'Build failed: ' . $error->getMessage() . "\n");

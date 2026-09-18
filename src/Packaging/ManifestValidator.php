@@ -13,6 +13,11 @@ final class ManifestValidator
 
     public function validate(string $path): string
     {
+        return $this->read($path)->name;
+    }
+
+    public function read(string $path): PluginManifest
+    {
         if (!is_file($path) || is_link($path) || ($size = filesize($path)) === false || $size > self::MAX_BYTES) {
             throw new PackageException('plugin.json must be a regular file no larger than 32768 bytes.');
         }
@@ -68,6 +73,24 @@ final class ManifestValidator
         if (!in_array($data['load'], ['STARTUP', 'WORLD_READY'], true)) {
             throw new PackageException('plugin.json has an invalid load phase.');
         }
-        return $data['name'];
+        /** @var list<string> $authors */
+        $authors = $data['authors'];
+        /** @var list<string> $dependencies */
+        $dependencies = $data['dependencies'];
+        /** @var list<string> $softDependencies */
+        $softDependencies = $data['softDependencies'];
+
+        return new PluginManifest(
+            $data['schema'],
+            $data['name'],
+            $data['version'],
+            $data['api'],
+            $data['main'],
+            $data['namespace'],
+            $authors,
+            $dependencies,
+            $softDependencies,
+            $data['load'],
+        );
     }
 }

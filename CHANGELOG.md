@@ -10,3 +10,6 @@ All notable PluginTools changes are recorded here.
 - Add strong embedded SHA-256 signatures and SHA-256 sidecar generation.
 - Add the development-only `PluginTools` Bedriox plugin scaffold and standalone
   packaging command.
+- Add bounded source-project discovery and namespace-restricted loading support.
+- Add the `makeplugin <PluginName> [--overwrite]` console packaging workflow,
+  with the standalone CLI retained for automation and offline builds.

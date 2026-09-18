@@ -74,4 +74,26 @@ final class PluginPackagerTest extends TestCase
         self::assertFileExists($output);
         self::assertFileExists($output . '.sha256');
     }
+
+    public function testRefusesExistingOutputUnlessOverwriteWasRequested(): void
+    {
+        $root = sys_get_temp_dir() . '/bedriox-plugin-tools-overwrite-' . bin2hex(random_bytes(6));
+        mkdir($root . '/src', 0o775, true);
+        copy(__DIR__ . '/../plugin.json', $root . '/plugin.json');
+        file_put_contents($root . '/src/Main.php', "<?php\ndeclare(strict_types=1);\n");
+        $output = $root . '/out.phar';
+        file_put_contents($output, 'preserve-me');
+
+        try {
+            new PluginPackager()->build($root, $output);
+            self::fail('Existing output should have been rejected.');
+        } catch (PackageException $failure) {
+            self::assertStringContainsString('--overwrite', $failure->getMessage());
+        }
+        self::assertSame('preserve-me', file_get_contents($output));
+
+        new PluginPackager()->build($root, $output, true);
+        self::assertNotSame('preserve-me', file_get_contents($output));
+        self::assertFileExists($output . '.sha256');
+    }
 }

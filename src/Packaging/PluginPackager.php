@@ -14,7 +14,7 @@ final class PluginPackager
 {
     public function __construct(private readonly int $maximumFiles = 4096, private readonly int $maximumFileBytes = 16_777_216, private readonly int $maximumTotalBytes = 67_108_864) {}
 
-    public function build(string $project, string $output): string
+    public function build(string $project, string $output, bool $overwrite = false): string
     {
         if (ini_get('phar.readonly') !== '0') {
             throw new PackageException('Building requires PHP with phar.readonly=0.');
@@ -25,14 +25,17 @@ final class PluginPackager
         }
         $pluginName = new ManifestValidator()->validate($root . DIRECTORY_SEPARATOR . 'plugin.json');
         $files = $this->collect($root);
+        $snapshots = $this->snapshot($files);
         $outputDirectory = dirname($output);
         if (!is_dir($outputDirectory) && !mkdir($outputDirectory, 0o775, true) && !is_dir($outputDirectory)) {
             throw new PackageException('Output directory could not be created.');
         }
-        $temporary = $output . '.tmp.phar';
-        if (file_exists($temporary) && !unlink($temporary)) {
-            throw new PackageException('Temporary package could not be replaced.');
+        if (file_exists($output) && !$overwrite) {
+            throw new PackageException('Output already exists; pass --overwrite to replace it.');
         }
+        $nonce = bin2hex(random_bytes(8));
+        $temporary = $outputDirectory . DIRECTORY_SEPARATOR . '.' . basename($output) . ".{$nonce}.tmp.phar";
+        $temporarySidecar = $temporary . '.sha256';
         try {
             $phar = new Phar($temporary, 0, basename($output));
             $phar->startBuffering();
@@ -57,20 +60,19 @@ final class PluginPackager
             $phar->setSignatureAlgorithm(Phar::SHA256);
             $phar->stopBuffering();
             unset($phar);
-            if (file_exists($output) && !unlink($output)) {
-                throw new PackageException('Existing output could not be replaced.');
-            }
-            if (!rename($temporary, $output)) {
-                throw new PackageException('Package could not be moved into place.');
-            }
-            $hash = hash_file('sha256', $output);
-            if ($hash === false || file_put_contents($output . '.sha256', $hash . '  ' . basename($output) . "\n", LOCK_EX) === false) {
+            $this->assertUnchanged($root, $files, $snapshots);
+            $hash = hash_file('sha256', $temporary);
+            if ($hash === false || file_put_contents($temporarySidecar, $hash . '  ' . basename($output) . "\n", LOCK_EX) === false) {
                 throw new PackageException('SHA-256 sidecar could not be written.');
             }
+            $this->publish($temporary, $temporarySidecar, $output, $overwrite, $nonce);
             return $pluginName;
         } finally {
             if (file_exists($temporary)) {
                 @unlink($temporary);
+            }
+            if (file_exists($temporarySidecar)) {
+                @unlink($temporarySidecar);
             }
         }
     }
@@ -117,11 +119,102 @@ final class PluginPackager
 
     private function excluded(string $path): bool
     {
-        return preg_match('~(^|/)(?:\.git|\.github|vendor|tests?|build|dist|coverage|\.idea|\.vscode)(?:/|$)|(?:^|/)(?:\.env(?:\..*)?|.*\.(?:key|pem|p12|pfx|log))$~i', $path) === 1;
+        return preg_match('~(^|/)(?:\.git|\.github|vendor|tests?|build|dist|coverage|\.idea|\.vscode)(?:/|$)|(?:^|/)(?:\.env(?:\..*)?|.*\.(?:key|pem|p12|pfx|log)|.*\.phar(?:\.sha256)?)$~i', $path) === 1;
     }
     private function within(string $root, string $path): bool
     {
         $root = strtolower(str_replace('\\', '/', rtrim($root, '\\/')) . '/');
         return str_starts_with(strtolower(str_replace('\\', '/', $path)), $root);
+    }
+
+    /**
+     * @param array<string, string> $files
+     * @return array<string, array{size: int, modified: int, hash: string}>
+     */
+    private function snapshot(array $files): array
+    {
+        $snapshots = [];
+        foreach ($files as $relative => $absolute) {
+            $size = filesize($absolute);
+            $modified = filemtime($absolute);
+            $hash = hash_file('sha256', $absolute);
+            if ($size === false || $modified === false || $hash === false) {
+                throw new PackageException("Could not inspect {$relative}.");
+            }
+            $snapshots[$relative] = ['size' => $size, 'modified' => $modified, 'hash' => $hash];
+        }
+
+        return $snapshots;
+    }
+
+    /**
+     * @param array<string, string> $files
+     * @param array<string, array{size: int, modified: int, hash: string}> $snapshots
+     */
+    private function assertUnchanged(string $root, array $files, array $snapshots): void
+    {
+        if (array_keys($this->collect($root)) !== array_keys($files)) {
+            throw new PackageException('Source files changed while packaging.');
+        }
+        foreach ($files as $relative => $absolute) {
+            clearstatcache(true, $absolute);
+            if (!is_file($absolute) || is_link($absolute)) {
+                throw new PackageException("Source changed while packaging: {$relative}.");
+            }
+            $size = filesize($absolute);
+            $modified = filemtime($absolute);
+            $hash = hash_file('sha256', $absolute);
+            if ($size === false || $modified === false || $hash === false
+                || $snapshots[$relative] !== ['size' => $size, 'modified' => $modified, 'hash' => $hash]) {
+                throw new PackageException("Source changed while packaging: {$relative}.");
+            }
+        }
+    }
+
+    private function publish(string $temporary, string $temporarySidecar, string $output, bool $overwrite, string $nonce): void
+    {
+        $sidecar = $output . '.sha256';
+        if (is_link($output) || is_link($sidecar)) {
+            throw new PackageException('Package output may not be a symbolic link.');
+        }
+        $backup = $output . ".{$nonce}.backup";
+        $backupSidecar = $sidecar . ".{$nonce}.backup";
+        $hadOutput = is_file($output);
+        $hadSidecar = is_file($sidecar);
+        if (($hadOutput || $hadSidecar) && !$overwrite) {
+            throw new PackageException('Output already exists; pass --overwrite to replace it.');
+        }
+
+        try {
+            if ($hadOutput && !rename($output, $backup)) {
+                throw new PackageException('Existing package could not be preserved for replacement.');
+            }
+            if ($hadSidecar && !rename($sidecar, $backupSidecar)) {
+                throw new PackageException('Existing checksum could not be preserved for replacement.');
+            }
+            if (!rename($temporary, $output) || !rename($temporarySidecar, $sidecar)) {
+                throw new PackageException('Package could not be published.');
+            }
+            if ($hadOutput) {
+                @unlink($backup);
+            }
+            if ($hadSidecar) {
+                @unlink($backupSidecar);
+            }
+        } catch (\Throwable $failure) {
+            if (is_file($output)) {
+                @unlink($output);
+            }
+            if (is_file($sidecar)) {
+                @unlink($sidecar);
+            }
+            if ($hadOutput && is_file($backup)) {
+                @rename($backup, $output);
+            }
+            if ($hadSidecar && is_file($backupSidecar)) {
+                @rename($backupSidecar, $sidecar);
+            }
+            throw $failure;
+        }
     }
 }
