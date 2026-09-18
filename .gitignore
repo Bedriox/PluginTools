@@ -1,0 +1,7 @@
+/vendor/
+/build/
+/dist/
+/.phpunit.cache/
+/.php-cs-fixer.cache
+*.phar
+*.phar.sha256

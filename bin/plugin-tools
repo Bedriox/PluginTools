@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Bedriox\PluginTools\Packaging\PluginPackager;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+if ($argc < 2 || $argc > 3) {
+    fwrite(STDERR, "Usage: plugin-tools <project-directory> [output.phar]\n");
+    exit(2);
+}
+$project = $argv[1];
+$output = $argv[2] ?? getcwd() . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . basename($project) . '.phar';
+try {
+    $name = (new PluginPackager())->build($project, $output);
+    fwrite(STDOUT, "Built {$name}: {$output}\n");
+} catch (Throwable $error) {
+    fwrite(STDERR, 'Build failed: ' . $error->getMessage() . "\n");
+    exit(1);
+}
