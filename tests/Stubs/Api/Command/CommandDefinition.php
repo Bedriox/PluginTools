@@ -10,7 +10,6 @@ final class CommandDefinition
     public function __construct(
         public string $name,
         public string $description,
-        public string $usage,
         public array $aliases = [],
         public ?string $permission = null,
         public AllowedCommandSenders $allowedSenders = AllowedCommandSenders::ANY,

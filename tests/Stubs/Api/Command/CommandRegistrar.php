@@ -6,6 +6,8 @@ namespace Bedriox\Api\Command;
 
 interface CommandRegistrar
 {
-    public function register(CommandDefinition $definition, callable $handler): mixed;
+    public function register(Command $command): mixed;
+    /** @param list<string> $values */
+    public function registerSoftEnum(string $name, array $values = []): CommandSoftEnum;
     public function submitJob(CommandJob $job): mixed;
 }

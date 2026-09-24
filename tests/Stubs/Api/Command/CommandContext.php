@@ -6,10 +6,9 @@ namespace Bedriox\Api\Command;
 
 final class CommandContext
 {
-    /** @return list<string> */
-    public function arguments(): array
+    public function values(): CommandValues
     {
-        return [];
+        return new CommandValues();
     }
     public function sender(): CommandSender
     {

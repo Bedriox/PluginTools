@@ -37,7 +37,9 @@ makeplugin MyPlugin
 ```
 
 `MyPlugin` must be the name of a source plugin discovered under `plugins/`.
-Filesystem paths are not accepted. The command writes:
+Filesystem paths are not accepted. Discovered project names are exposed to the
+Bedrock command UI through a live, PluginTools-owned command enum. The command
+writes:
 
 ```text
 plugin_data/PluginTools/MyPlugin.phar
