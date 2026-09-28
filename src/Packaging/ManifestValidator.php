@@ -10,6 +10,7 @@ final class ManifestValidator
 {
     private const int MAX_BYTES = 32768;
     private const array FIELDS = ['schema', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
+    private const array SUPPORTED_API_CONSTRAINTS = ['0.3', '0.3.0', '^0.3', '^0.3.0', '~0.3', '~0.3.0'];
 
     public function validate(string $path): string
     {
@@ -50,6 +51,9 @@ final class ManifestValidator
             if (!is_string($data[$field]) || strlen($data[$field]) > 255 || preg_match($pattern, $data[$field]) !== 1) {
                 throw new PackageException("plugin.json has an invalid {$field}.");
             }
+        }
+        if (!in_array($data['api'], self::SUPPORTED_API_CONSTRAINTS, true)) {
+            throw new PackageException("plugin.json requires unsupported API {$data['api']}.");
         }
         if ($data['main'] !== $data['namespace'] && !str_starts_with($data['main'], $data['namespace'] . '\\')) {
             throw new PackageException('The entry point is outside the declared namespace.');

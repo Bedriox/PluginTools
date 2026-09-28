@@ -6,6 +6,8 @@ All notable PluginTools changes are recorded here.
 
 ### Added
 
+- Target Bedriox plugin API 0.3 and reject source manifests that request an
+  unsupported API constraint.
 - Migrate `makeplugin` to the typed command API and advertise discovered source-project names through a plugin-owned soft enum.
 - Add bounded manifest validation and deterministic PHAR input selection.
 - Add strong embedded SHA-256 signatures and SHA-256 sidecar generation.

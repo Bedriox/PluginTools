@@ -25,6 +25,10 @@ event rules used for packaged plugins. Projects are inspected before any of
 their PHP code executes. Unsafe paths, symbolic links, duplicate names, missing
 entry points, and projects outside the configured limits are rejected.
 
+PluginTools targets Bedriox plugin API 0.3. Source manifests may use `0.3`,
+`0.3.0`, `^0.3`, `^0.3.0`, `~0.3`, or `~0.3.0`; other API constraints are
+rejected during discovery and packaging.
+
 PHP classes cannot be unloaded safely. Restart Bedriox after changing source
 code or adding and removing source plugins.
 

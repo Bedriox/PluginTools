@@ -80,7 +80,7 @@ final class SourcePluginDiscoveryTest extends TestCase
             'schema' => 1,
             'name' => $name,
             'version' => '0.1.0',
-            'api' => '^0.1',
+            'api' => '^0.3',
             'main' => "Example\\{$name}\\Main",
             'namespace' => "Example\\{$name}",
             'authors' => ['Test'],
