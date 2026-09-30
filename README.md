@@ -1,4 +1,12 @@
-# Bedriox PluginTools
+<p align="center">
+  <img src="assets/plugintools.webp" width="192" height="192" alt="PluginTools voxel hammer, code brackets, and cube icon">
+</p>
+
+<h1 align="center">Bedriox PluginTools</h1>
+
+<p align="center">
+  Develop source plugins locally, validate their structure, and package release-ready PHAR files.
+</p>
 
 PluginTools is the development companion for Bedriox plugins. Installing
 `PluginTools.phar` enables source-folder plugins and adds the recommended
