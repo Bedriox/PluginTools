@@ -10,7 +10,7 @@ final class ManifestValidator
 {
     private const int MAX_BYTES = 32768;
     private const array FIELDS = ['schema', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
-    private const array SUPPORTED_API_CONSTRAINTS = ['0.3', '0.3.0', '^0.3', '^0.3.0', '~0.3', '~0.3.0'];
+    private const array SUPPORTED_API_CONSTRAINTS = ['0.4', '0.4.0', '^0.4', '^0.4.0', '~0.4', '~0.4.0'];
 
     public function validate(string $path): string
     {

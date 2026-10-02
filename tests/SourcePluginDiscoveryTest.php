@@ -7,6 +7,7 @@ namespace Bedriox\PluginTools\Tests;
 use Bedriox\PluginTools\Command\MakePluginPlanner;
 use Bedriox\PluginTools\Development\SourcePluginAutoloader;
 use Bedriox\PluginTools\Development\SourcePluginDiscovery;
+use Bedriox\PluginTools\Development\SourcePluginResources;
 use Bedriox\Api\Plugin\PluginContext;
 use PHPUnit\Framework\TestCase;
 
@@ -66,6 +67,21 @@ final class SourcePluginDiscoveryTest extends TestCase
         $loader->unregister();
     }
 
+    public function testReadsBoundedResourcesWithPortableRelativeNames(): void
+    {
+        $root = $this->temporary('resources');
+        $this->writePlugin($root . '/Alpha', 'Alpha');
+        mkdir($root . '/Alpha/resources/templates', 0o775, true);
+        file_put_contents($root . '/Alpha/resources/config.yml', "enabled: true\n");
+        file_put_contents($root . '/Alpha/resources/templates/welcome.txt', 'Welcome');
+        $project = new SourcePluginDiscovery()->discover($root)->projects[0];
+
+        self::assertSame([
+            'config.yml' => "enabled: true\n",
+            'templates/welcome.txt' => 'Welcome',
+        ], new SourcePluginResources()->read($project));
+    }
+
     private function temporary(string $label): string
     {
         $root = sys_get_temp_dir() . '/bedriox-plugin-tools-' . $label . '-' . bin2hex(random_bytes(6));
@@ -80,7 +96,7 @@ final class SourcePluginDiscoveryTest extends TestCase
             'schema' => 1,
             'name' => $name,
             'version' => '0.1.0',
-            'api' => '^0.3',
+            'api' => '^0.4',
             'main' => "Example\\{$name}\\Main",
             'namespace' => "Example\\{$name}",
             'authors' => ['Test'],

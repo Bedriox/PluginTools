@@ -26,7 +26,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[DataProvider('supportedApiConstraints')]
-    public function testAcceptsBedrioxApi03Constraints(string $api): void
+    public function testAcceptsBedrioxApi04Constraints(string $api): void
     {
         $path = $this->manifestWithApi($api);
 
@@ -36,7 +36,7 @@ final class ManifestValidatorTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function supportedApiConstraints(): iterable
     {
-        foreach (['0.3', '0.3.0', '^0.3', '^0.3.0', '~0.3', '~0.3.0'] as $api) {
+        foreach (['0.4', '0.4.0', '^0.4', '^0.4.0', '~0.4', '~0.4.0'] as $api) {
             yield $api => [$api];
         }
     }

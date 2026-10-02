@@ -33,9 +33,15 @@ event rules used for packaged plugins. Projects are inspected before any of
 their PHP code executes. Unsafe paths, symbolic links, duplicate names, missing
 entry points, and projects outside the configured limits are rejected.
 
-PluginTools targets Bedriox plugin API 0.3. Source manifests may use `0.3`,
-`0.3.0`, `^0.3`, `^0.3.0`, `~0.3`, or `~0.3.0`; other API constraints are
+PluginTools targets Bedriox plugin API 0.4. Source manifests may use `0.4`,
+`0.4.0`, `^0.4`, `^0.4.0`, `~0.4`, or `~0.4.0`; other API constraints are
 rejected during discovery and packaging.
+
+Source projects may include a `resources/` directory. PluginTools admits its
+bounded contents and gives Bedriox the same read-only resource view provided
+to packaged plugins. Plugins can then copy defaults and open YAML or JSON
+configuration through `$this->context()->data()` whether they are loaded from
+source or a PHAR.
 
 PHP classes cannot be unloaded safely. Restart Bedriox after changing source
 code or adding and removing source plugins.

@@ -10,6 +10,7 @@ use Bedriox\PluginTools\Command\MakePluginCommand;
 use Bedriox\PluginTools\Development\SourcePluginAutoloader;
 use Bedriox\PluginTools\Development\SourcePluginDiscovery;
 use Bedriox\PluginTools\Development\SourcePluginDiscoveryResult;
+use Bedriox\PluginTools\Development\SourcePluginResources;
 
 final class PluginTools extends Plugin
 {
@@ -34,6 +35,7 @@ final class PluginTools extends Plugin
                 $manifest->dependencies,
                 $manifest->softDependencies,
                 $manifest->load,
+                new SourcePluginResources()->read($project),
                 $loader->instantiate(...),
                 $loader->unregister(...),
             );
@@ -60,7 +62,7 @@ final class PluginTools extends Plugin
         $projectNames = $commands->registerSoftEnum('source_plugins', array_values($projects));
         $commands->register(new MakePluginCommand(
             $this->catalog,
-            $this->context()->dataFolder(),
+            $this->context()->data()->path(),
             $projectNames,
             $commands,
         ));

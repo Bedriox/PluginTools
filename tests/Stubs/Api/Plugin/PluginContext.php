@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bedriox\Api\Plugin;
 
 use Bedriox\Api\Command\CommandRegistrar;
+use Bedriox\Api\Plugin\Data\PluginData;
 
 final class PluginContext
 {
@@ -16,7 +17,7 @@ final class PluginContext
     {
         throw new \LogicException('Test stub.');
     }
-    public function dataFolder(): string
+    public function data(): PluginData
     {
         throw new \LogicException('Test stub.');
     }
