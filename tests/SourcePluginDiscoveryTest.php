@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Bedriox\PluginTools\Tests;
 
 use Bedriox\PluginTools\Command\MakePluginPlanner;
-use Bedriox\PluginTools\Development\SourcePluginAutoloader;
+use Bedriox\PluginTools\Core\PluginPlatform;
 use Bedriox\PluginTools\Development\SourcePluginDiscovery;
 use Bedriox\PluginTools\Development\SourcePluginResources;
+use Bedriox\PluginTools\Host\Bedriox\SourcePluginAutoloader;
 use Bedriox\Api\Plugin\PluginContext;
 use PHPUnit\Framework\TestCase;
 
@@ -54,6 +55,44 @@ final class SourcePluginDiscoveryTest extends TestCase
         self::assertStringContainsString('entry point', $result->failures[0]->reason);
     }
 
+    public function testHostProfileRejectsAPluginForTheOtherPlatform(): void
+    {
+        $root = $this->temporary('platform');
+        $this->writePlugin($root . '/Alpha', 'Alpha');
+        $path = $root . '/Alpha/plugin.json';
+        $manifest = json_decode((string) file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
+        self::assertIsArray($manifest);
+        $manifest['platform'] = 'gateway';
+        $manifest['api'] = '^0.2';
+        file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
+
+        $result = new SourcePluginDiscovery(platform: PluginPlatform::BEDRIOX)->discover($root);
+
+        self::assertSame([], $result->projects);
+        self::assertCount(1, $result->failures);
+        self::assertStringContainsString('this host accepts only "bedriox"', $result->failures[0]->reason);
+    }
+
+    public function testBedrioxAcceptsMissingPlatformWhileGatewayRequiresIt(): void
+    {
+        $root = $this->temporary('implicit-bedriox-platform');
+        $this->writePlugin($root . '/Alpha', 'Alpha');
+        $path = $root . '/Alpha/plugin.json';
+        $manifest = json_decode((string) file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
+        self::assertIsArray($manifest);
+        unset($manifest['platform']);
+        file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
+
+        $bedriox = new SourcePluginDiscovery(platform: PluginPlatform::BEDRIOX)->discover($root);
+        self::assertCount(1, $bedriox->projects);
+        self::assertSame([], $bedriox->failures);
+
+        $gateway = new SourcePluginDiscovery(platform: PluginPlatform::GATEWAY)->discover($root);
+        self::assertSame([], $gateway->projects);
+        self::assertCount(1, $gateway->failures);
+        self::assertStringContainsString('missing the required platform field', $gateway->failures[0]->reason);
+    }
+
     public function testNamespaceRestrictedLoaderInstantiatesAdmittedProject(): void
     {
         $root = $this->temporary('loader');
@@ -93,7 +132,8 @@ final class SourcePluginDiscoveryTest extends TestCase
     {
         mkdir($root . '/src', 0o775, true);
         $manifest = [
-            'schema' => 1,
+            'schema' => 2,
+            'platform' => 'bedriox',
             'name' => $name,
             'version' => '0.1.0',
             'api' => '^0.4',

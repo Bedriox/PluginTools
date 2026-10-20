@@ -1,0 +1,13 @@
+{
+  "schema": 2,
+  "platform": "gateway",
+  "name": "PluginTools",
+  "version": "0.2.0",
+  "api": "^0.2",
+  "main": "Bedriox\\PluginTools\\Host\\Gateway\\PluginTools",
+  "namespace": "Bedriox\\PluginTools",
+  "authors": ["Bedriox Team"],
+  "dependencies": [],
+  "softDependencies": [],
+  "load": "STARTUP"
+}

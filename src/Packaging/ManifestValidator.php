@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Packaging;
 
+use Bedriox\PluginTools\Core\PluginPlatform;
 use JsonException;
 
 final class ManifestValidator
 {
     private const int MAX_BYTES = 32768;
-    private const array FIELDS = ['schema', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
-    private const array SUPPORTED_API_CONSTRAINTS = ['0.4', '0.4.0', '^0.4', '^0.4.0', '~0.4', '~0.4.0'];
+    private const array FIELDS = ['schema', 'platform', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
+    private const array REQUIRED_FIELDS = ['schema', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
+
+    public function __construct(private readonly ?PluginPlatform $requiredPlatform = null) {}
 
     public function validate(string $path): string
     {
@@ -41,19 +44,39 @@ final class ManifestValidator
         } catch (JsonException $e) {
             throw new PackageException('plugin.json is not valid JSON.', 0, $e);
         }
-        if (!is_array($data) || array_is_list($data) || array_diff(array_keys($data), self::FIELDS) !== [] || array_diff(self::FIELDS, array_keys($data)) !== []) {
-            throw new PackageException('plugin.json fields do not match schema 1.');
+        if (!is_array($data) || array_is_list($data)) {
+            throw new PackageException('plugin.json must contain one JSON object.');
         }
-        if ($data['schema'] !== 1 || !is_string($data['name']) || preg_match('/^[A-Z][A-Za-z0-9_]{0,63}$/D', $data['name']) !== 1) {
+        if ($this->requiredPlatform === PluginPlatform::GATEWAY && !array_key_exists('platform', $data)) {
+            throw new PackageException('Gateway plugin.json is missing the required platform field.');
+        }
+        if (array_diff(array_keys($data), self::FIELDS) !== [] || array_diff(self::REQUIRED_FIELDS, array_keys($data)) !== []) {
+            throw new PackageException('plugin.json fields do not match schema 2.');
+        }
+        if ($data['schema'] !== 2 || !is_string($data['name']) || preg_match('/^[A-Z][A-Za-z0-9_]{0,63}$/D', $data['name']) !== 1) {
             throw new PackageException('plugin.json has an invalid schema or name.');
+        }
+        if (!array_key_exists('platform', $data)) {
+            $platform = PluginPlatform::BEDRIOX;
+        } else {
+            if (!is_string($data['platform']) || ($platform = PluginPlatform::tryFrom($data['platform'])) === null) {
+                throw new PackageException('plugin.json platform must be exactly "bedriox" or "gateway".');
+            }
+        }
+        if ($this->requiredPlatform !== null && $platform !== $this->requiredPlatform) {
+            throw new PackageException(sprintf(
+                'plugin.json targets platform "%s"; this host accepts only "%s".',
+                $platform->value,
+                $this->requiredPlatform->value,
+            ));
         }
         foreach (['version' => '/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/D', 'api' => '/^[~^]?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))?$/D', 'main' => '/^[A-Z][A-Za-z0-9_]*(?:\\\\[A-Z][A-Za-z0-9_]*)*$/D', 'namespace' => '/^[A-Z][A-Za-z0-9_]*(?:\\\\[A-Z][A-Za-z0-9_]*)*$/D'] as $field => $pattern) {
             if (!is_string($data[$field]) || strlen($data[$field]) > 255 || preg_match($pattern, $data[$field]) !== 1) {
                 throw new PackageException("plugin.json has an invalid {$field}.");
             }
         }
-        if (!in_array($data['api'], self::SUPPORTED_API_CONSTRAINTS, true)) {
-            throw new PackageException("plugin.json requires unsupported API {$data['api']}.");
+        if (!in_array($data['api'], $platform->supportedApiConstraints(), true)) {
+            throw new PackageException("plugin.json requires unsupported {$platform->value} API {$data['api']}.");
         }
         if ($data['main'] !== $data['namespace'] && !str_starts_with($data['main'], $data['namespace'] . '\\')) {
             throw new PackageException('The entry point is outside the declared namespace.');
@@ -74,8 +97,8 @@ final class ManifestValidator
         if (in_array($data['name'], [...$data['dependencies'], ...$data['softDependencies']], true) || array_intersect($data['dependencies'], $data['softDependencies']) !== []) {
             throw new PackageException('plugin.json has conflicting dependencies.');
         }
-        if (!in_array($data['load'], ['STARTUP', 'WORLD_READY'], true)) {
-            throw new PackageException('plugin.json has an invalid load phase.');
+        if (!in_array($data['load'], $platform->supportedLoadPhases(), true)) {
+            throw new PackageException("plugin.json has an invalid {$platform->value} load phase.");
         }
         /** @var list<string> $authors */
         $authors = $data['authors'];
@@ -86,6 +109,7 @@ final class ManifestValidator
 
         return new PluginManifest(
             $data['schema'],
+            $platform,
             $data['name'],
             $data['version'],
             $data['api'],

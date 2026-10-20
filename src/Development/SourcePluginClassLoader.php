@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Development;
 
-use Bedriox\Api\Plugin\Plugin;
-use Bedriox\Api\Plugin\PluginContext;
 use RuntimeException;
 use Throwable;
 
-/** Namespace-restricted loader used only after Bedriox admits a discovered definition. */
-final class SourcePluginAutoloader
+/** Host-independent, namespace-restricted loader for one admitted source project. */
+final class SourcePluginClassLoader
 {
     /** @var callable(string): void */
     private $loader;
@@ -63,7 +61,7 @@ final class SourcePluginAutoloader
         }
     }
 
-    public function instantiate(PluginContext $context): Plugin
+    public function instantiate(object $context, string $requiredBaseClass): object
     {
         $this->register();
         try {
@@ -71,8 +69,8 @@ final class SourcePluginAutoloader
             if (!class_exists($main)) {
                 throw new RuntimeException("Source plugin entry point {$main} was not found.");
             }
-            if (!is_subclass_of($main, Plugin::class)) {
-                throw new RuntimeException("Source plugin entry point {$main} must extend " . Plugin::class . '.');
+            if (!is_subclass_of($main, $requiredBaseClass)) {
+                throw new RuntimeException("Source plugin entry point {$main} must extend {$requiredBaseClass}.");
             }
 
             return new $main($context);

@@ -18,9 +18,9 @@ final class PackageBuildJobTest extends TestCase
     public function testBuildRunsAsCooperativelyPolledChildProcess(): void
     {
         $root = sys_get_temp_dir() . '/bedriox-plugin-job-' . bin2hex(random_bytes(6));
-        mkdir($root . '/project/src', 0o775, true);
+        mkdir($root . '/project/src/Host/Bedriox', 0o775, true);
         copy(__DIR__ . '/../plugin.json', $root . '/project/plugin.json');
-        file_put_contents($root . '/project/src/PluginTools.php', "<?php\ndeclare(strict_types=1);\n");
+        file_put_contents($root . '/project/src/Host/Bedriox/PluginTools.php', "<?php\ndeclare(strict_types=1);\n");
         $project = new SourcePluginDiscovery()->discover($root)->projects[0];
         $tool = $root . '/PluginTools.phar';
         new PluginPackager()->build(dirname(__DIR__), $tool);

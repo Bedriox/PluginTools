@@ -18,6 +18,7 @@ final class SourcePluginDefinition
      */
     public function __construct(
         public int $schema,
+        public string $platform,
         public string $name,
         public string $version,
         public string $api,

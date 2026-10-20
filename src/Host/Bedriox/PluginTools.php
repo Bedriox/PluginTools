@@ -2,16 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Bedriox\PluginTools;
+namespace Bedriox\PluginTools\Host\Bedriox;
 
 use Bedriox\Api\Plugin\Plugin;
 use Bedriox\Api\Plugin\SourcePluginDefinition;
 use Bedriox\PluginTools\Command\MakePluginCommand;
-use Bedriox\PluginTools\Development\SourcePluginAutoloader;
+use Bedriox\PluginTools\Core\PluginPlatform;
 use Bedriox\PluginTools\Development\SourcePluginDiscovery;
 use Bedriox\PluginTools\Development\SourcePluginDiscoveryResult;
 use Bedriox\PluginTools\Development\SourcePluginResources;
 
+/** Thin Bedriox host adapter around the host-independent PluginTools core. */
 final class PluginTools extends Plugin
 {
     private SourcePluginDiscoveryResult $catalog;
@@ -19,13 +20,14 @@ final class PluginTools extends Plugin
     public function onLoad(): void
     {
         $registrar = $this->context()->sourcePlugins();
-        $this->catalog = new SourcePluginDiscovery()->discover($registrar->pluginsDirectory());
+        $this->catalog = new SourcePluginDiscovery(platform: PluginPlatform::BEDRIOX)->discover($registrar->pluginsDirectory());
         $definitions = [];
         foreach ($this->catalog->projects as $project) {
             $manifest = $project->manifestData;
             $loader = new SourcePluginAutoloader($project);
             $definitions[] = new SourcePluginDefinition(
                 $manifest->schema,
+                $manifest->platform->value,
                 $manifest->name,
                 $manifest->version,
                 $manifest->api,

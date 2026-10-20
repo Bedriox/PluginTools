@@ -14,7 +14,7 @@ final class PluginPackager
 {
     public function __construct(private readonly int $maximumFiles = 4096, private readonly int $maximumFileBytes = 16_777_216, private readonly int $maximumTotalBytes = 67_108_864) {}
 
-    public function build(string $project, string $output, bool $overwrite = false): string
+    public function build(string $project, string $output, bool $overwrite = false, ?string $manifestSource = null): string
     {
         if (ini_get('phar.readonly') !== '0') {
             throw new PackageException('Building requires PHP with phar.readonly=0.');
@@ -23,7 +23,16 @@ final class PluginPackager
         if ($root === false || !is_dir($root) || is_link($project)) {
             throw new PackageException('Project must be a regular directory.');
         }
-        $pluginName = new ManifestValidator()->validate($root . DIRECTORY_SEPARATOR . 'plugin.json');
+        $manifestSource ??= $root . DIRECTORY_SEPARATOR . 'plugin.json';
+        $manifestPath = realpath($manifestSource);
+        if ($manifestPath === false || !is_file($manifestPath) || is_link($manifestSource) || !$this->within($root, $manifestPath)) {
+            throw new PackageException('Manifest source must be a regular file inside the project.');
+        }
+        $pluginName = new ManifestValidator()->validate($manifestPath);
+        $manifestHash = hash_file('sha256', $manifestPath);
+        if ($manifestHash === false) {
+            throw new PackageException('Manifest source could not be inspected.');
+        }
         $files = $this->collect($root);
         $snapshots = $this->snapshot($files);
         $outputDirectory = dirname($output);
@@ -40,7 +49,7 @@ final class PluginPackager
             $phar = new Phar($temporary, 0, basename($output));
             $phar->startBuffering();
             foreach ($files as $relative => $absolute) {
-                $contents = file_get_contents($absolute);
+                $contents = file_get_contents($relative === 'plugin.json' ? $manifestPath : $absolute);
                 if ($contents === false) {
                     throw new PackageException("Could not read {$relative}.");
                 }
@@ -61,6 +70,9 @@ final class PluginPackager
             $phar->stopBuffering();
             unset($phar);
             $this->assertUnchanged($root, $files, $snapshots);
+            if (hash_file('sha256', $manifestPath) !== $manifestHash) {
+                throw new PackageException('Manifest source changed while packaging.');
+            }
             $hash = hash_file('sha256', $temporary);
             if ($hash === false || file_put_contents($temporarySidecar, $hash . '  ' . basename($output) . "\n", LOCK_EX) === false) {
                 throw new PackageException('SHA-256 sidecar could not be written.');
@@ -119,7 +131,7 @@ final class PluginPackager
 
     private function excluded(string $path): bool
     {
-        return preg_match('~(^|/)(?:\.git|\.github|vendor|tests?|build|dist|coverage|\.idea|\.vscode)(?:/|$)|(?:^|/)(?:\.env(?:\..*)?|.*\.(?:key|pem|p12|pfx|log)|.*\.phar(?:\.sha256)?)$~i', $path) === 1;
+        return preg_match('~(^|/)(?:\.git|\.github|vendor|tests?|build|dist|coverage|platforms|\.idea|\.vscode)(?:/|$)|(?:^|/)(?:\.env(?:\..*)?|.*\.(?:key|pem|p12|pfx|log)|.*\.phar(?:\.sha256)?)$~i', $path) === 1;
     }
     private function within(string $root, string $path): bool
     {

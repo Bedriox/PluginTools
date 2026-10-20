@@ -6,6 +6,16 @@ All notable PluginTools changes are recorded here.
 
 ### Added
 
+- Treat an omitted schema 2 platform as `bedriox` for existing plugin
+  compatibility while requiring Gateway plugins to declare `platform: gateway`;
+  unknown, incorrectly cased, and wrong-host values receive clear rejections.
+- Add platform profiles for Bedriox API 0.4 and Gateway API 0.2, including
+  host-specific load-phase validation.
+- Split host integration from the shared source discovery, class loading,
+  resource, manifest, and packaging core.
+- Add thin Bedriox and Gateway host adapters and a host-artifact builder for
+  `PluginTools-Bedriox.phar` and `PluginTools-Gateway.phar`.
+- Use the same `plugins/` and `plugin_data/` conventions on both hosts.
 - Target Bedriox plugin API 0.4 and reject source manifests that request an
   unsupported API constraint.
 - Provide bounded source-project resources through the same plugin data API

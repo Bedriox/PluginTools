@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Packaging;
 
+use Bedriox\PluginTools\Core\PluginPlatform;
+
 final readonly class PluginManifest
 {
     /**
@@ -13,6 +15,7 @@ final readonly class PluginManifest
      */
     public function __construct(
         public int $schema,
+        public PluginPlatform $platform,
         public string $name,
         public string $version,
         public string $api,

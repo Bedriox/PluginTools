@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Tests;
 
+use Bedriox\PluginTools\Core\PluginPlatform;
 use Bedriox\PluginTools\Packaging\PluginPackager;
+use Bedriox\PluginTools\Packaging\PluginToolsArtifactBuilder;
 use Bedriox\PluginTools\Packaging\PackageException;
 use Phar;
 use PHPUnit\Framework\TestCase;
@@ -73,6 +75,32 @@ final class PluginPackagerTest extends TestCase
         self::assertSame(0, proc_close($process), $stdout . $stderr);
         self::assertFileExists($output);
         self::assertFileExists($output . '.sha256');
+    }
+
+    public function testBuildsDistinctBedrioxAndGatewayHostArtifacts(): void
+    {
+        $root = sys_get_temp_dir() . '/bedriox-plugin-tools-hosts-' . bin2hex(random_bytes(6));
+        mkdir($root, 0o775, true);
+        $builder = new PluginToolsArtifactBuilder();
+        $bedrioxOutput = $root . '/PluginTools-Bedriox.phar';
+        $gatewayOutput = $root . '/PluginTools-Gateway.phar';
+
+        $builder->build(dirname(__DIR__), PluginPlatform::BEDRIOX, $bedrioxOutput);
+        $builder->build(dirname(__DIR__), PluginPlatform::GATEWAY, $gatewayOutput);
+
+        $bedriox = json_decode((string) file_get_contents('phar://' . $bedrioxOutput . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        $gateway = json_decode((string) file_get_contents('phar://' . $gatewayOutput . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        self::assertIsArray($bedriox);
+        self::assertIsArray($gateway);
+        self::assertArrayHasKey('platform', $bedriox);
+        self::assertArrayHasKey('main', $bedriox);
+        self::assertArrayHasKey('platform', $gateway);
+        self::assertArrayHasKey('main', $gateway);
+        self::assertSame('bedriox', $bedriox['platform']);
+        self::assertSame('Bedriox\\PluginTools\\Host\\Bedriox\\PluginTools', $bedriox['main']);
+        self::assertSame('gateway', $gateway['platform']);
+        self::assertSame('Bedriox\\PluginTools\\Host\\Gateway\\PluginTools', $gateway['main']);
+        self::assertArrayNotHasKey('platforms/gateway/plugin.json', new Phar($gatewayOutput));
     }
 
     public function testRefusesExistingOutputUnlessOverwriteWasRequested(): void

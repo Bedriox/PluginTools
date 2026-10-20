@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Development;
 
+use Bedriox\PluginTools\Core\PluginPlatform;
 use Bedriox\PluginTools\Packaging\ManifestValidator;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
@@ -19,6 +20,7 @@ final class SourcePluginDiscovery
         private readonly int $maximumFiles = 4096,
         private readonly int $maximumFileBytes = 16_777_216,
         private readonly int $maximumTotalBytes = 67_108_864,
+        private readonly PluginPlatform $platform = PluginPlatform::BEDRIOX,
     ) {
         if ($this->maximumProjects < 0 || $this->maximumProjects > 256) {
             throw new \InvalidArgumentException('Source plugin limit must be between 0 and 256.');
@@ -58,7 +60,7 @@ final class SourcePluginDiscovery
                     throw new \RuntimeException('Source plugin path escapes the plugins directory.');
                 }
                 $manifest = $resolved . DIRECTORY_SEPARATOR . 'plugin.json';
-                $manifestData = new ManifestValidator()->read($manifest);
+                $manifestData = new ManifestValidator($this->platform)->read($manifest);
                 $name = $manifestData->name;
                 $this->validateTree($resolved, $manifestData->namespace, $manifestData->main);
                 $key = strtolower($name);
