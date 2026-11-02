@@ -42,11 +42,11 @@ their PHP code executes. Unsafe paths, symbolic links, duplicate names, missing
 entry points, and projects outside the configured limits are rejected. A safe
 directory label and rejection reason are written to the host console.
 
-Every plugin must use schema 2. Existing Bedriox plugins may omit `platform`;
-PluginTools treats an omitted value as `bedriox`. Gateway plugins must declare
-`platform` as exactly `gateway`. Explicit values are case-sensitive, and
-misspellings such as `gateaway`, unknown values, schema-1 manifests, and
-wrong-host plugins are rejected.
+Source plugins may omit `schema` and `platform`. PluginTools supplies the
+current schema and infers the active Bedriox or Gateway host. Explicit values
+remain case-sensitive, and misspellings such as `gateaway`, unknown values,
+schema-1 manifests, and wrong-host plugins are rejected. Packaged PHARs always
+contain the resolved schema and platform so they remain independently valid.
 
 PluginTools supports Bedriox API 0.4 constraints and Gateway API 0.2
 constraints. Bedriox accepts `STARTUP` and `WORLD_READY`; Gateway accepts

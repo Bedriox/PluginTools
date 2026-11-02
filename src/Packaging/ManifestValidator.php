@@ -11,7 +11,7 @@ final class ManifestValidator
 {
     private const int MAX_BYTES = 32768;
     private const array FIELDS = ['schema', 'platform', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
-    private const array REQUIRED_FIELDS = ['schema', 'name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
+    private const array REQUIRED_FIELDS = ['name', 'version', 'api', 'main', 'namespace', 'authors', 'dependencies', 'softDependencies', 'load'];
 
     public function __construct(private readonly ?PluginPlatform $requiredPlatform = null) {}
 
@@ -47,17 +47,15 @@ final class ManifestValidator
         if (!is_array($data) || array_is_list($data)) {
             throw new PackageException('plugin.json must contain one JSON object.');
         }
-        if ($this->requiredPlatform === PluginPlatform::GATEWAY && !array_key_exists('platform', $data)) {
-            throw new PackageException('Gateway plugin.json is missing the required platform field.');
-        }
         if (array_diff(array_keys($data), self::FIELDS) !== [] || array_diff(self::REQUIRED_FIELDS, array_keys($data)) !== []) {
             throw new PackageException('plugin.json fields do not match schema 2.');
         }
-        if ($data['schema'] !== 2 || !is_string($data['name']) || preg_match('/^[A-Z][A-Za-z0-9_]{0,63}$/D', $data['name']) !== 1) {
+        $schema = $data['schema'] ?? 2;
+        if ($schema !== 2 || !is_string($data['name']) || preg_match('/^[A-Z][A-Za-z0-9_]{0,63}$/D', $data['name']) !== 1) {
             throw new PackageException('plugin.json has an invalid schema or name.');
         }
         if (!array_key_exists('platform', $data)) {
-            $platform = PluginPlatform::BEDRIOX;
+            $platform = $this->requiredPlatform ?? PluginPlatform::BEDRIOX;
         } else {
             if (!is_string($data['platform']) || ($platform = PluginPlatform::tryFrom($data['platform'])) === null) {
                 throw new PackageException('plugin.json platform must be exactly "bedriox" or "gateway".');
@@ -108,7 +106,7 @@ final class ManifestValidator
         $softDependencies = $data['softDependencies'];
 
         return new PluginManifest(
-            $data['schema'],
+            $schema,
             $platform,
             $data['name'],
             $data['version'],

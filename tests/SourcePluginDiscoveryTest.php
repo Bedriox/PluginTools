@@ -73,24 +73,27 @@ final class SourcePluginDiscoveryTest extends TestCase
         self::assertStringContainsString('this host accepts only "bedriox"', $result->failures[0]->reason);
     }
 
-    public function testBedrioxAcceptsMissingPlatformWhileGatewayRequiresIt(): void
+    public function testEachHostInfersItsPlatformWhenSchemaAndPlatformAreOmitted(): void
     {
         $root = $this->temporary('implicit-bedriox-platform');
         $this->writePlugin($root . '/Alpha', 'Alpha');
         $path = $root . '/Alpha/plugin.json';
         $manifest = json_decode((string) file_get_contents($path), true, 16, JSON_THROW_ON_ERROR);
         self::assertIsArray($manifest);
-        unset($manifest['platform']);
+        unset($manifest['schema'], $manifest['platform']);
         file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
 
         $bedriox = new SourcePluginDiscovery(platform: PluginPlatform::BEDRIOX)->discover($root);
         self::assertCount(1, $bedriox->projects);
         self::assertSame([], $bedriox->failures);
 
+        $manifest['api'] = '^0.2';
+        $manifest['load'] = 'STARTUP';
+        file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
         $gateway = new SourcePluginDiscovery(platform: PluginPlatform::GATEWAY)->discover($root);
-        self::assertSame([], $gateway->projects);
-        self::assertCount(1, $gateway->failures);
-        self::assertStringContainsString('missing the required platform field', $gateway->failures[0]->reason);
+        self::assertCount(1, $gateway->projects);
+        self::assertSame([], $gateway->failures);
+        self::assertSame(PluginPlatform::GATEWAY, $gateway->projects[0]->manifestData->platform);
     }
 
     public function testNamespaceRestrictedLoaderInstantiatesAdmittedProject(): void

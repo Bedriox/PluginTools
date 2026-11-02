@@ -28,7 +28,9 @@ final class PluginPackager
         if ($manifestPath === false || !is_file($manifestPath) || is_link($manifestSource) || !$this->within($root, $manifestPath)) {
             throw new PackageException('Manifest source must be a regular file inside the project.');
         }
-        $pluginName = new ManifestValidator()->validate($manifestPath);
+        $manifest = new ManifestValidator()->read($manifestPath);
+        $pluginName = $manifest->name;
+        $normalizedManifest = $manifest->normalizedJson();
         $manifestHash = hash_file('sha256', $manifestPath);
         if ($manifestHash === false) {
             throw new PackageException('Manifest source could not be inspected.');
@@ -49,7 +51,7 @@ final class PluginPackager
             $phar = new Phar($temporary, 0, basename($output));
             $phar->startBuffering();
             foreach ($files as $relative => $absolute) {
-                $contents = file_get_contents($relative === 'plugin.json' ? $manifestPath : $absolute);
+                $contents = $relative === 'plugin.json' ? $normalizedManifest : file_get_contents($absolute);
                 if ($contents === false) {
                     throw new PackageException("Could not read {$relative}.");
                 }

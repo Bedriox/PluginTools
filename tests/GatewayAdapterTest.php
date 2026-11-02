@@ -31,7 +31,7 @@ final class GatewayAdapterTest extends TestCase
         self::assertSame([], $registrar->definitions);
         self::assertCount(1, $logger->warningMessages);
         self::assertStringContainsString('Source plugin Broken was rejected:', $logger->warningMessages[0]);
-        self::assertStringContainsString('missing the required platform field', $logger->warningMessages[0]);
+        self::assertStringContainsString('fields do not match schema 2', $logger->warningMessages[0]);
     }
 
     public function testRegistersGatewayDefinitionWithBoundedResources(): void

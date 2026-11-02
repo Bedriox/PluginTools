@@ -51,25 +51,42 @@ final class ManifestValidatorTest extends TestCase
         new ManifestValidator()->validate($path);
     }
 
-    public function testManifestWithoutPlatformDefaultsToBedriox(): void
+    public function testManifestWithoutSchemaOrPlatformDefaultsToCurrentBedrioxContract(): void
     {
         $path = $this->manifestWith(static function (array &$manifest): void {
+            unset($manifest['schema']);
             unset($manifest['platform']);
         });
 
-        self::assertSame(PluginPlatform::BEDRIOX, new ManifestValidator()->read($path)->platform);
+        $manifest = new ManifestValidator()->read($path);
+        self::assertSame(2, $manifest->schema);
+        self::assertSame(PluginPlatform::BEDRIOX, $manifest->platform);
         self::assertSame(PluginPlatform::BEDRIOX, new ManifestValidator(PluginPlatform::BEDRIOX)->read($path)->platform);
     }
 
-    public function testGatewayProfileRequiresExplicitPlatform(): void
+    public function testHostProfileInfersGatewayWhenPlatformIsOmitted(): void
     {
         $path = $this->manifestWith(static function (array &$manifest): void {
+            unset($manifest['schema']);
             unset($manifest['platform']);
+            $manifest['api'] = '^0.2';
+            $manifest['load'] = 'STARTUP';
+        });
+
+        $manifest = new ManifestValidator(PluginPlatform::GATEWAY)->read($path);
+        self::assertSame(2, $manifest->schema);
+        self::assertSame(PluginPlatform::GATEWAY, $manifest->platform);
+    }
+
+    public function testRejectsAnExplicitLegacySchema(): void
+    {
+        $path = $this->manifestWith(static function (array &$manifest): void {
+            $manifest['schema'] = 1;
         });
 
         $this->expectException(PackageException::class);
-        $this->expectExceptionMessage('missing the required platform field');
-        new ManifestValidator(PluginPlatform::GATEWAY)->read($path);
+        $this->expectExceptionMessage('invalid schema or name');
+        new ManifestValidator()->read($path);
     }
 
     #[DataProvider('unknownPlatforms')]

@@ -29,6 +29,24 @@ final class PluginPackagerTest extends TestCase
         self::assertSame(hash_file('sha256', $output) . '  out.phar', trim((string) file_get_contents($output . '.sha256')));
     }
 
+    public function testPackageWritesResolvedSchemaAndPlatformWhenSourceOmitsThem(): void
+    {
+        $root = sys_get_temp_dir() . '/bedriox-plugin-tools-normalized-' . bin2hex(random_bytes(6));
+        mkdir($root . '/src', 0o775, true);
+        $manifest = json_decode((string) file_get_contents(__DIR__ . '/../plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        self::assertIsArray($manifest);
+        unset($manifest['schema'], $manifest['platform']);
+        file_put_contents($root . '/plugin.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        file_put_contents($root . '/src/Main.php', "<?php\ndeclare(strict_types=1);\n");
+
+        $output = $root . '/out.phar';
+        new PluginPackager()->build($root, $output);
+        $packaged = json_decode((string) file_get_contents('phar://' . $output . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        self::assertIsArray($packaged);
+        self::assertSame(2, $packaged['schema']);
+        self::assertSame('bedriox', $packaged['platform']);
+    }
+
     public function testRejectsFileCountOverflow(): void
     {
         $root = sys_get_temp_dir() . '/bedriox-plugin-tools-limit-' . bin2hex(random_bytes(6));
