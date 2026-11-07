@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Packaging;
 
-use Bedriox\PluginTools\Core\PluginPlatform;
-
-/** Builds one host-specific PluginTools PHAR from the shared repository sources. */
+/** Builds one PluginTools PHAR for Bedriox, Gateway, and standalone CLI use. */
 final class PluginToolsArtifactBuilder
 {
     public function __construct(private readonly PluginPackager $packager = new PluginPackager()) {}
 
-    public function build(string $repository, PluginPlatform $platform, string $output, bool $overwrite = false): string
+    public function build(string $repository, string $output, bool $overwrite = false): string
     {
-        $manifest = match ($platform) {
-            PluginPlatform::BEDRIOX => $repository . DIRECTORY_SEPARATOR . 'plugin.json',
-            PluginPlatform::GATEWAY => $repository . DIRECTORY_SEPARATOR . 'platforms' . DIRECTORY_SEPARATOR . 'gateway' . DIRECTORY_SEPARATOR . 'plugin.json',
-        };
+        $gatewayManifest = $repository . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, PluginPackager::GATEWAY_MANIFEST);
+        if (!is_file($gatewayManifest) || is_link($gatewayManifest)) {
+            throw new PackageException('PluginTools requires its Gateway platform manifest.');
+        }
 
-        return $this->packager->build($repository, $output, $overwrite, $manifest);
+        return $this->packager->build($repository, $output, $overwrite);
     }
 }

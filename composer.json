@@ -9,7 +9,7 @@
   "autoload": {"psr-4":{"Bedriox\\PluginTools\\":"src/"}},
   "autoload-dev": {"psr-4":{"Bedriox\\PluginTools\\Tests\\":"tests/","Bedriox\\Api\\":"tests/Stubs/Api/","Bedriox\\Gateway\\Api\\":"tests/Stubs/GatewayApi/"}},
   "bin": ["bin/plugin-tools"],
-  "scripts": {"test":"php -d phar.readonly=0 vendor/bin/phpunit","analyse":"phpstan analyse --no-progress --memory-limit=512M","style":"php-cs-fixer check --diff","check":["@test","@analyse","@style"]},
+  "scripts": {"test":"php -d phar.readonly=0 vendor/bin/phpunit","analyse":"phpstan analyse --no-progress --memory-limit=512M","style":"php-cs-fixer check --diff","build:phar":"php -d phar.readonly=0 bin/build-artifact.php build/PluginTools.phar --overwrite","check":["@test","@analyse","@style"]},
   "config": {"allow-plugins":false,"sort-packages":true},
   "minimum-stability":"stable","prefer-stable":true
 }

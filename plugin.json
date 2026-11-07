@@ -2,7 +2,7 @@
   "schema": 2,
   "platform": "bedriox",
   "name": "PluginTools",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "api": "^0.4",
   "main": "Bedriox\\PluginTools\\Host\\Bedriox\\PluginTools",
   "namespace": "Bedriox\\PluginTools",

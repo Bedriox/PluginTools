@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Tests;
 
-use Bedriox\PluginTools\Core\PluginPlatform;
 use Bedriox\PluginTools\Packaging\PluginPackager;
 use Bedriox\PluginTools\Packaging\PluginToolsArtifactBuilder;
 use Bedriox\PluginTools\Packaging\PackageException;
@@ -70,44 +69,52 @@ final class PluginPackagerTest extends TestCase
         new PluginPackager()->build($root, $root . '/out.phar');
     }
 
-    public function testPackagedPluginToolsCanBuildAnotherPlugin(): void
+    public function testPackagedPluginToolsCanBuildBedrioxAndGatewayPlugins(): void
     {
         $root = sys_get_temp_dir() . '/bedriox-plugin-tools-self-' . bin2hex(random_bytes(6));
-        mkdir($root . '/project/src', 0o775, true);
-        copy(__DIR__ . '/../plugin.json', $root . '/project/plugin.json');
-        file_put_contents($root . '/project/src/Main.php', "<?php\ndeclare(strict_types=1);\n");
         $tool = $root . '/PluginTools.phar';
+        mkdir($root, 0o775, true);
         new PluginPackager()->build(dirname(__DIR__), $tool);
-        $output = $root . '/Result.phar';
-        $process = proc_open(
-            [PHP_BINARY, '-d', 'phar.readonly=0', $tool, $root . '/project', $output],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes,
-        );
-        self::assertIsResource($process);
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
+        foreach ([
+            'bedriox' => __DIR__ . '/../plugin.json',
+            'gateway' => __DIR__ . '/../platforms/gateway/plugin.json',
+        ] as $platform => $manifest) {
+            $project = $root . '/' . $platform;
+            mkdir($project . '/src', 0o775, true);
+            copy($manifest, $project . '/plugin.json');
+            file_put_contents($project . '/src/Main.php', "<?php\ndeclare(strict_types=1);\n");
+            $output = $root . '/' . ucfirst($platform) . '.phar';
+            $process = proc_open(
+                [PHP_BINARY, '-d', 'phar.readonly=0', $tool, $project, $output],
+                [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes,
+            );
+            self::assertIsResource($process);
+            $stdout = stream_get_contents($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
 
-        self::assertSame(0, proc_close($process), $stdout . $stderr);
-        self::assertFileExists($output);
-        self::assertFileExists($output . '.sha256');
+            self::assertSame(0, proc_close($process), $stdout . $stderr);
+            self::assertFileExists($output);
+            self::assertFileExists($output . '.sha256');
+            $packaged = json_decode((string) file_get_contents('phar://' . $output . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+            self::assertIsArray($packaged);
+            self::assertSame($platform, $packaged['platform']);
+        }
     }
 
-    public function testBuildsDistinctBedrioxAndGatewayHostArtifacts(): void
+    public function testBuildsOneBedrioxAndGatewayHostArtifact(): void
     {
         $root = sys_get_temp_dir() . '/bedriox-plugin-tools-hosts-' . bin2hex(random_bytes(6));
         mkdir($root, 0o775, true);
         $builder = new PluginToolsArtifactBuilder();
-        $bedrioxOutput = $root . '/PluginTools-Bedriox.phar';
-        $gatewayOutput = $root . '/PluginTools-Gateway.phar';
+        $output = $root . '/PluginTools.phar';
 
-        $builder->build(dirname(__DIR__), PluginPlatform::BEDRIOX, $bedrioxOutput);
-        $builder->build(dirname(__DIR__), PluginPlatform::GATEWAY, $gatewayOutput);
+        $builder->build(dirname(__DIR__), $output);
 
-        $bedriox = json_decode((string) file_get_contents('phar://' . $bedrioxOutput . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
-        $gateway = json_decode((string) file_get_contents('phar://' . $gatewayOutput . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        $bedriox = json_decode((string) file_get_contents('phar://' . $output . '/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        $gateway = json_decode((string) file_get_contents('phar://' . $output . '/' . PluginPackager::GATEWAY_MANIFEST), true, 16, JSON_THROW_ON_ERROR);
         self::assertIsArray($bedriox);
         self::assertIsArray($gateway);
         self::assertArrayHasKey('platform', $bedriox);
@@ -118,7 +125,27 @@ final class PluginPackagerTest extends TestCase
         self::assertSame('Bedriox\\PluginTools\\Host\\Bedriox\\PluginTools', $bedriox['main']);
         self::assertSame('gateway', $gateway['platform']);
         self::assertSame('Bedriox\\PluginTools\\Host\\Gateway\\PluginTools', $gateway['main']);
-        self::assertArrayNotHasKey('platforms/gateway/plugin.json', new Phar($gatewayOutput));
+        self::assertSame($bedriox['name'], $gateway['name']);
+        self::assertSame($bedriox['version'], $gateway['version']);
+        self::assertArrayHasKey(PluginPackager::GATEWAY_MANIFEST, new Phar($output));
+        self::assertFileExists($output . '.sha256');
+    }
+
+    public function testRejectsMismatchedSharedPluginIdentity(): void
+    {
+        $root = sys_get_temp_dir() . '/bedriox-plugin-tools-shared-mismatch-' . bin2hex(random_bytes(6));
+        mkdir($root . '/src', 0o775, true);
+        mkdir($root . '/platforms/gateway', 0o775, true);
+        copy(__DIR__ . '/../plugin.json', $root . '/plugin.json');
+        $gateway = json_decode((string) file_get_contents(__DIR__ . '/../platforms/gateway/plugin.json'), true, 16, JSON_THROW_ON_ERROR);
+        self::assertIsArray($gateway);
+        $gateway['version'] = '9.9.9';
+        file_put_contents($root . '/platforms/gateway/plugin.json', json_encode($gateway, JSON_THROW_ON_ERROR));
+        file_put_contents($root . '/src/Main.php', "<?php\ndeclare(strict_types=1);\n");
+
+        $this->expectException(PackageException::class);
+        $this->expectExceptionMessage('version');
+        new PluginPackager()->build($root, $root . '/PluginTools.phar');
     }
 
     public function testRefusesExistingOutputUnlessOverwriteWasRequested(): void

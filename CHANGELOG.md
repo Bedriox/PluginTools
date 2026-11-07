@@ -13,8 +13,8 @@ All notable PluginTools changes are recorded here.
   host-specific load-phase validation.
 - Split host integration from the shared source discovery, class loading,
   resource, manifest, and packaging core.
-- Add thin Bedriox and Gateway host adapters and a host-artifact builder for
-  `PluginTools-Bedriox.phar` and `PluginTools-Gateway.phar`.
+- Add thin Bedriox and Gateway host adapters and package them in one
+  `PluginTools.phar` that each host resolves through its own bounded manifest.
 - Use the same `plugins/` and `plugin_data/` conventions on both hosts.
 - Target Bedriox plugin API 0.4 and reject source manifests that request an
   unsupported API constraint.

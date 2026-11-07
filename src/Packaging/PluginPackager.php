@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bedriox\PluginTools\Packaging;
 
+use Bedriox\PluginTools\Core\PluginPlatform;
 use FilesystemIterator;
 use Phar;
 use RecursiveDirectoryIterator;
@@ -12,9 +13,11 @@ use SplFileInfo;
 
 final class PluginPackager
 {
+    public const string GATEWAY_MANIFEST = 'platforms/gateway/plugin.json';
+
     public function __construct(private readonly int $maximumFiles = 4096, private readonly int $maximumFileBytes = 16_777_216, private readonly int $maximumTotalBytes = 67_108_864) {}
 
-    public function build(string $project, string $output, bool $overwrite = false, ?string $manifestSource = null): string
+    public function build(string $project, string $output, bool $overwrite = false): string
     {
         if (ini_get('phar.readonly') !== '0') {
             throw new PackageException('Building requires PHP with phar.readonly=0.');
@@ -23,17 +26,34 @@ final class PluginPackager
         if ($root === false || !is_dir($root) || is_link($project)) {
             throw new PackageException('Project must be a regular directory.');
         }
-        $manifestSource ??= $root . DIRECTORY_SEPARATOR . 'plugin.json';
+        $manifestSource = $root . DIRECTORY_SEPARATOR . 'plugin.json';
         $manifestPath = realpath($manifestSource);
         if ($manifestPath === false || !is_file($manifestPath) || is_link($manifestSource) || !$this->within($root, $manifestPath)) {
             throw new PackageException('Manifest source must be a regular file inside the project.');
         }
         $manifest = new ManifestValidator()->read($manifestPath);
         $pluginName = $manifest->name;
-        $normalizedManifest = $manifest->normalizedJson();
-        $manifestHash = hash_file('sha256', $manifestPath);
-        if ($manifestHash === false) {
-            throw new PackageException('Manifest source could not be inspected.');
+        $normalizedManifests = ['plugin.json' => $manifest->normalizedJson()];
+        $manifestSources = ['plugin.json' => $manifestPath];
+        $gatewayRelative = self::GATEWAY_MANIFEST;
+        $gatewaySource = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $gatewayRelative);
+        if (file_exists($gatewaySource) || is_link($gatewaySource)) {
+            $gatewayPath = realpath($gatewaySource);
+            if ($gatewayPath === false || !is_file($gatewayPath) || is_link($gatewaySource) || !$this->within($root, $gatewayPath)) {
+                throw new PackageException('Gateway manifest source must be a regular file inside the project.');
+            }
+            $gatewayManifest = new ManifestValidator(PluginPlatform::GATEWAY)->read($gatewayPath);
+            $this->assertSharedIdentity($manifest, $gatewayManifest);
+            $normalizedManifests[$gatewayRelative] = $gatewayManifest->normalizedJson();
+            $manifestSources[$gatewayRelative] = $gatewayPath;
+        }
+        $manifestHashes = [];
+        foreach ($manifestSources as $relative => $source) {
+            $hash = hash_file('sha256', $source);
+            if ($hash === false) {
+                throw new PackageException("Manifest source {$relative} could not be inspected.");
+            }
+            $manifestHashes[$relative] = $hash;
         }
         $files = $this->collect($root);
         $snapshots = $this->snapshot($files);
@@ -51,7 +71,7 @@ final class PluginPackager
             $phar = new Phar($temporary, 0, basename($output));
             $phar->startBuffering();
             foreach ($files as $relative => $absolute) {
-                $contents = $relative === 'plugin.json' ? $normalizedManifest : file_get_contents($absolute);
+                $contents = $normalizedManifests[$relative] ?? file_get_contents($absolute);
                 if ($contents === false) {
                     throw new PackageException("Could not read {$relative}.");
                 }
@@ -72,8 +92,11 @@ final class PluginPackager
             $phar->stopBuffering();
             unset($phar);
             $this->assertUnchanged($root, $files, $snapshots);
-            if (hash_file('sha256', $manifestPath) !== $manifestHash) {
-                throw new PackageException('Manifest source changed while packaging.');
+            foreach ($manifestSources as $relative => $source) {
+                $expectedHash = $manifestHashes[$relative] ?? null;
+                if (!is_string($expectedHash) || hash_file('sha256', $source) !== $expectedHash) {
+                    throw new PackageException("Manifest source {$relative} changed while packaging.");
+                }
             }
             $hash = hash_file('sha256', $temporary);
             if ($hash === false || file_put_contents($temporarySidecar, $hash . '  ' . basename($output) . "\n", LOCK_EX) === false) {
@@ -133,7 +156,23 @@ final class PluginPackager
 
     private function excluded(string $path): bool
     {
+        if ($path === self::GATEWAY_MANIFEST) {
+            return false;
+        }
+
         return preg_match('~(^|/)(?:\.git|\.github|vendor|tests?|build|dist|coverage|platforms|\.idea|\.vscode)(?:/|$)|(?:^|/)(?:\.env(?:\..*)?|.*\.(?:key|pem|p12|pfx|log)|.*\.phar(?:\.sha256)?)$~i', $path) === 1;
+    }
+
+    private function assertSharedIdentity(PluginManifest $base, PluginManifest $gateway): void
+    {
+        if ($base->platform !== PluginPlatform::BEDRIOX) {
+            throw new PackageException('A shared plugin package must use bedriox as its base platform.');
+        }
+        foreach (['name', 'version', 'namespace', 'authors'] as $field) {
+            if ($base->{$field} !== $gateway->{$field}) {
+                throw new PackageException("Shared plugin manifests disagree on {$field}.");
+            }
+        }
     }
     private function within(string $root, string $path): bool
     {

@@ -13,9 +13,9 @@ plugins. Its common core owns source discovery, schema validation, resources,
 and secure packaging. Thin host adapters admit source plugins through public
 host APIs; neither Bedriox nor Gateway scans source trees itself.
 
-Releases provide `PluginTools-Bedriox.phar` and
-`PluginTools-Gateway.phar`. Either can be installed as
-`plugins/PluginTools.phar` in its matching host.
+Releases provide one `PluginTools.phar` and its SHA-256 checksum. Install that
+same PHAR under `plugins/` in either Bedriox or Gateway. The archive carries
+bounded manifests for both hosts, and each host selects only its own adapter.
 
 ## Develop from source
 
@@ -89,7 +89,7 @@ the authoritative simulation. The new archive and checksum are prepared before
 an existing build is replaced. If packaging fails, the previous build remains
 available.
 
-Gateway source loading is supported by the Gateway artifact. Gateway does not
+Gateway source loading is supported by the same PluginTools artifact. Gateway does not
 yet expose a console dispatcher suitable for filesystem build commands, so its
 player command registry is deliberately not used for packaging. Use the shared
 standalone CLI for Gateway projects until that console API is available.
@@ -124,18 +124,20 @@ archive timestamps.
 PluginTools is intended for development servers. Remove it from a production
 installation when source loading and in-server packaging are not required.
 
-## Build host artifacts
+## Build the release artifact
 
-Repository maintainers build both host artifacts from the same source tree:
+Repository maintainers build the shared artifact from the same source tree:
 
 ```shell
-php -d phar.readonly=0 bin/build-host-artifact.php bedriox dist/PluginTools-Bedriox.phar
-php -d phar.readonly=0 bin/build-host-artifact.php gateway dist/PluginTools-Gateway.phar
+composer build:phar
 ```
 
-The Gateway manifest is a release input under `platforms/gateway/`; build input
-manifests are excluded from resulting PHARs. Both artifacts contain the same
-audited core and select only their platform-specific entry point.
+This writes `build/PluginTools.phar` and
+`build/PluginTools.phar.sha256`. The root manifest selects the Bedriox adapter;
+the bounded manifest under `platforms/gateway/` selects the Gateway adapter.
+Their package identity must match, while API, entry point, dependencies, and
+load phase may remain host-specific. The standalone CLI uses the same audited
+core without loading either host adapter.
 
 Licensed under [GPL-3.0-only](LICENSE). See [SECURITY.md](SECURITY.md) before
 reporting vulnerabilities. Project website: [bedriox.com](https://bedriox.com).
